@@ -1,5 +1,5 @@
 
-# Development Board Template
+# Kubi Modular Desk Pet System 
 
 
 <div align="center">
@@ -10,50 +10,47 @@
     <br>
 </div>
 
+Kubi is a modular desk pet platform designed to create an interactive and expressive desktop companion using embedded systems, sensors, wireless communication, and animated visual feedback.
+
+Built around the DevLab ecosystem and the Pulsar ESP32 series, Kubi combines motion sensing, OLED-based emotions, modular expansion, and wireless connectivity into a customizable development platform suitable for makers, students, educators, and embedded developers.
+
+Kubi can display emotions, react to movement, enter idle animation modes, visualize system status, and serve as a platform for experimentation with sensors, IoT, and embedded AI applications.
+
 <div align="center">
-  <img src="hardware/resources/board_image.png" width="450px" alt="Development Board">
-  <p><em>[Replace with board name or logo]</em></p>
+  <img src="hardware/resources/kubi.png" width="450px" alt="Kubi Desk Pet">
 </div>
 
 
-A generic and modular development board based on the [Microcontroller Name], designed for rapid prototyping, embedded systems education, IoT experimentation, and wearable devices. This board combines flexible power options, modern connectivity, and accessible interfaces to accelerate your hardware development.
+## Features
 
-## 📦 Overview
-
-| Feature                 | Description                                                   |
-|------------------------|---------------------------------------------------------------|
-| Microcontroller         | [Insert name and variant]                                     |
-
-## 🧪 Use Cases
-
-- IoT Sensor Nodes
-- Wearable Devices
-- Environmental Monitoring
-- Educational Electronics
-- Automation Prototyping
-
-## 🚀 Getting Started
-
-1. **Connect** the board via USB-C to your computer.
-2. **Install** the appropriate board package for:
-   - Arduino IDE
-   - PlatformIO
-   - ESP-IDF / Pico SDK
-3. **Flash** a sample project or use one from `/software/examples`
-4. **Power** via USB or external battery (if supported)
+- Animated emotional expressions on OLED display
+- Motion and orientation detection using BMI270
+- Modular QWIIC/DevLab ecosystem connectivity
+- Wireless communication support via ESP32-C6/H2
+- Battery-powered portable operation
+- Expandable sensor architecture
+- Interactive idle and reaction states
+- Designed for experimentation and education
+- Compatible with Arduino, MicroPython, and native SDK development
 
 
-## 📚 Resources
+# System Architecture
 
-- [Schematic Diagram](hardware/schematic.pdf)
-- [Board Dimensions (DXF)](docs/dimensions.dxf)
-- [Pinout Diagram](docs/pinout.png)
-- [Firmware Examples](firmware/)
-- [Getting Started Guide](docs/getting_started.md)
+Kubi is based on a modular architecture that allows multiple peripherals and sensors to be connected through standardized QWIIC interfaces.
+
+Main subsystems include:
+
+| Module | Function |
+|---|---|
+| Pulsar ESP32-C6/H2 | Main processing and connectivity |
+| OLED SSD1306 | Facial expressions and status visualization |
+| BMI270 IMU | Motion and orientation sensing |
+| LiPo Battery System | Portable power supply |
+| QWIIC Expansion Hub | Modular sensor connectivity |
+| DevLab Ecosystem Modules | Future expansion support |
 
 
-
-## 📝 License
+## License
 
 All hardware and documentation in this project are licensed under the **MIT License**.  
 Please refer to [`LICENSE.md`](LICENSE.md) for full terms.
