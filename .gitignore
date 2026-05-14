@@ -1,0 +1,13 @@
+venv
+software/documentation/build
+software/documentation/docs
+software/getting_started/docs
+software/getting_started/pdf
+software/sphinx/build
+software/sphinx/html
+software/sphinx/latex
+software/sphinx/pdf
+software/sphinx/docs
+software/sphinx/pdf
+software/venv
+software/firmware

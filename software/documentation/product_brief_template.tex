@@ -1,0 +1,141 @@
+\documentclass[10pt]{article}
+
+\usepackage[a4paper,margin=0.65in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{color}
+\usepackage{parskip}
+\usepackage{helvet}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{lastpage}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{makecell}
+\usepackage{tabularx}
+\usepackage[table]{xcolor}
+\usepackage{colortbl}
+\usepackage{placeins} % para FloatBarrier
+
+% Colores para tablas
+\definecolor{headergray}{gray}{0.9}
+\definecolor{rowalt}{RGB}{245,245,255}
+
+% Fuente sans-serif
+\renewcommand{\familydefault}{\sfdefault}
+
+% Encabezado
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\includegraphics[height=0.7cm]{<<LOGO>>}}
+\rhead{\textbf{<<TITLE>> v<<VERSION>>}}
+\lfoot{Product Brief}
+\rfoot{\thepage\ | \pageref{LastPage}}
+
+% Estilo de secciones
+\titleformat{\section}{\bfseries\large\sffamily}{}{0em}{}
+\titleformat{\subsection}{\bfseries\normalsize\sffamily}{}{0em}{}
+\titlespacing*{\section}{0pt}{1.2em}{0.5em}
+\titlespacing*{\subsection}{0pt}{0.8em}{0.4em}
+
+\title{}
+\author{}
+\date{}
+
+\sloppy
+\setlength{\emergencystretch}{3em}
+
+\begin{document}
+
+% Encabezado del documento
+\noindent
+\makebox[\textwidth][l]{%
+    \begin{minipage}[t]{\textwidth}
+        \Large \textbf{<<TITLE>> Product Brief}\\[1.0em]
+        \normalsize <<SUBTITLE>>\\[0.3em]
+        \footnotesize\textsf{Version: <<VERSION>> \hfill Modified: <<DATE>>}
+    \end{minipage}%
+}
+\vspace{1em}
+\hrule
+\vspace{1.5em}
+
+% Introducción con imagen
+\section*{Introduction}
+\vspace{0.5em}
+\noindent
+\begin{minipage}[t]{0.62\textwidth}
+\setlength{\parskip}{0.75em}
+\justifying
+<<INTRODUCTION>>
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.35\textwidth}
+\centering
+\vspace{-0.5em}
+\includegraphics[height=4.5cm,keepaspectratio]{<<IMAGE_PRODUCT>>}
+\end{minipage}
+
+\vspace{1.0em}
+\FloatBarrier % evita que la imagen flote sobre el siguiente bloque
+
+
+
+% Secciones técnicas
+\section*{Functional Description}
+<<FUNCTIONAL>>
+
+\section*{Electrical Characteristics}
+<<ELECTRICAL>>
+
+\section*{Features}
+<<FEATURES>>
+
+
+
+\section*{Applications}
+<<APPLICATIONS>>
+
+\vspace{1em}
+
+
+
+\section*{Settings}
+
+\subsection*{Interface Overview}
+<<INTERFACE_TABLE>>
+
+\subsection*{Supported Pins}
+<<SUPPORTS_TABLE>>
+
+
+
+
+
+% Tabla principal
+\section*{Pin \& Connector Layout}
+<<PIN_TABLE>>
+
+% Imágenes adicionales
+\FloatBarrier
+<<IMAGES>>
+
+
+% Uso
+\section*{Usage}
+<<USAGE>>
+
+% Descargas
+\section*{Downloads}
+
+<<DOWNLOADS>>
+
+% Compra
+\section*{Purchase}
+<<PURCHASE>>
+
+\end{document}

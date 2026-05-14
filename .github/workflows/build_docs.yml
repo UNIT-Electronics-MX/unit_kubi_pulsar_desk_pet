@@ -1,0 +1,89 @@
+name: Build and Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-doc:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies (Python + LaTeX + Ghostscript)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-lang-english ghostscript latexmk
+        pip install -r software/documentation/requirements.txt
+        pip install -r software/sphinx/requirements.txt
+
+    #################################################
+    # Generar PDF del Product Brief con nombre del repo
+    #################################################
+    - name: Build LaTeX PDF from README
+      working-directory: software/documentation
+      env:
+        REPO_NAME: ${{ github.event.repository.name }}
+      run: |
+        python test_readme.py
+        python generate_pdf.py
+        gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/printer \
+           -dNOPAUSE -dQUIET -dBATCH \
+           -sOutputFile=build/${REPO_NAME}_product_brief.pdf build/*.pdf
+
+    #################################################
+    # Generar Documentación Sphinx (HTML + PDF)
+    #################################################
+    - name: Build Sphinx Documentation
+      working-directory: software/sphinx
+      run: |
+        make clean
+        make pdfx
+
+    #################################################
+    # Preparar contenido para docs/
+    #################################################
+    - name: Prepare docs/ directory
+      env:
+        REPO_NAME: ${{ github.event.repository.name }}
+      run: |
+        rm -rf docs
+        mkdir -p docs
+
+        # PDF generado desde LaTeX
+        cp software/documentation/build/${REPO_NAME}_product_brief.pdf docs/
+
+        # PDF generado por Sphinx
+        cp software/sphinx/pdf/programmer.pdf docs/${REPO_NAME}_sphinx.pdf
+
+        # HTML generado por Sphinx
+        cp -r software/sphinx/docs/* docs/
+
+        # Permitir archivos especiales en GitHub Pages
+        touch docs/.nojekyll
+
+    #################################################
+    # Publicar cambios a la rama main
+    #################################################
+    - name: Commit and push docs/ to main
+      if: github.ref == 'refs/heads/main'
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git pull origin main
+        git add docs/
+        git commit -m "Deploy full documentation and product brief [skip ci]" || echo "No changes"
+        git push origin main
