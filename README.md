@@ -1,6 +1,11 @@
 
 # Kubi Modular Desk Pet System 
 
+Kubi is a modular desk pet platform designed to create an interactive and expressive desktop companion using embedded systems, sensors, wireless communication, and animated visual feedback.
+
+Built around the DevLab ecosystem and the Pulsar ESP32 series, Kubi combines motion sensing, OLED-based emotions, modular expansion, and wireless connectivity into a customizable development platform suitable for makers, students, educators, and embedded developers.
+
+Kubi can display emotions, react to movement, enter idle animation modes, visualize system status, and serve as a platform for experimentation with sensors, IoT, and embedded AI applications.
 
 <div align="center">
     <a href="#"><img src="https://img.shields.io/badge/version-1.0-blue.svg" alt="Version"></a>
@@ -9,12 +14,6 @@
     <a href="#"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
     <br>
 </div>
-
-Kubi is a modular desk pet platform designed to create an interactive and expressive desktop companion using embedded systems, sensors, wireless communication, and animated visual feedback.
-
-Built around the DevLab ecosystem and the Pulsar ESP32 series, Kubi combines motion sensing, OLED-based emotions, modular expansion, and wireless connectivity into a customizable development platform suitable for makers, students, educators, and embedded developers.
-
-Kubi can display emotions, react to movement, enter idle animation modes, visualize system status, and serve as a platform for experimentation with sensors, IoT, and embedded AI applications.
 
 <div align="center">
   <img src="hardware/resources/kubi.png" width="450px" alt="Kubi Desk Pet">
