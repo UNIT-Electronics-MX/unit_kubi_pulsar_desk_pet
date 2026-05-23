@@ -4,8 +4,13 @@
 #include <Adafruit_SSD1306.h>
 #include <math.h>
 #include "SparkFun_BMI270_Arduino_Library.h"
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 
-// ESP32-H2: SDA=GPIO12, SCL=GPIO22
+
+// ESP32-C6: SDA=GPIO6, SCL=GPIO7
 
 // =====================================================
 // RTC SYNC OPTIONS
@@ -18,6 +23,24 @@
 // También puedes enviar por Serial Monitor (115200, sin LF/CR extra):
 //   SET YYYY-MM-DD HH:MM:SS    -> ajusta fecha y hora
 //   TIME                       -> imprime hora actual
+//   WIFI                       -> imprime estado WiFi
+//   PRICE                      -> fuerza consulta de precios
+
+// =====================================================
+// WIFI / REPORT CONFIG - ESP32-C6
+// =====================================================
+// Cambia estos valores antes de compilar.
+const char* ssid = "TU_WIFI";
+const char* password = "TU_PASS";
+
+static const unsigned long WIFI_CONNECT_TIMEOUT_MS = 10000UL;
+static const unsigned long WIFI_RETRY_INTERVAL_MS = 15000UL;
+static const unsigned long PRICE_UPDATE_INTERVAL_MS = 60000UL;
+static const unsigned long HTTP_TIMEOUT_MS = 2500UL;
+static const bool ENABLE_AUTO_SUSPEND = false;
+static const unsigned long IDLE_MARKET_DISPLAY_MS = 10000UL;
+static const unsigned long IDLE_CLOCK_DISPLAY_MS = 10000UL;
+static const int IDLE_INFO_START_FRAMES = 50;
 
 // =====================================================
 // OLED CONFIG
@@ -28,8 +51,8 @@ static const int HEIGHT = 64;
 static const int OLED_RESET = -1;
 static const uint8_t OLED_ADDR = 0x3C;
 
-static const int I2C_SDA_PIN = 12;
-static const int I2C_SCL_PIN = 22;
+static const int I2C_SDA_PIN = 6;
+static const int I2C_SCL_PIN = 7;
 
 Adafruit_SSD1306 oled(WIDTH, HEIGHT, &Wire, OLED_RESET);
 
@@ -70,6 +93,15 @@ int circular_counter = 0;
 int angry_cooldown = 0;
 int emotion_hold_frames = 0;
 bool hasRTC = false;
+bool wifi_started = false;
+bool prices_valid = false;
+unsigned long last_wifi_attempt_ms = 0;
+unsigned long last_price_update_ms = 0;
+float btc_usd = 0.0;
+float eth_usd = 0.0;
+float usd_mxn = 0.0;
+float btc_mxn = 0.0;
+float eth_mxn = 0.0;
 
 // =====================================================
 // SUSPEND MODE - después de 5 min de inactividad
@@ -220,6 +252,59 @@ void draw_clock() {
   oled.display();
 }
 
+void format_mxn_compact(float value, char *out, size_t out_size) {
+  if (value >= 1000000.0) {
+    snprintf(out, out_size, "$%.2fM", value / 1000000.0);
+  } else if (value >= 1000.0) {
+    snprintf(out, out_size, "$%.1fk", value / 1000.0);
+  } else {
+    snprintf(out, out_size, "$%.2f", value);
+  }
+}
+
+void draw_market() {
+  oled.clearDisplay();
+  oled.drawRect(0, 0, WIDTH, HEIGHT, SSD1306_WHITE);
+  oled.fillRect(2, 2, WIDTH - 4, 12, SSD1306_WHITE);
+
+  oled.setTextSize(1);
+  oled.setTextColor(SSD1306_BLACK);
+  oled.setCursor(4, 4);
+  oled.print("MARKET");
+  oled.setCursor(92, 4);
+  oled.print(WiFi.status() == WL_CONNECTED ? "WIFI" : "OFF");
+
+  oled.setTextColor(SSD1306_WHITE);
+
+  if (!prices_valid) {
+    oled.setCursor(16, 28);
+    oled.print(WiFi.status() == WL_CONNECTED ? "Sin precios" : "Conectando...");
+    oled.display();
+    return;
+  }
+
+  char btc_buf[12];
+  char eth_buf[12];
+  char usd_buf[12];
+  format_mxn_compact(btc_mxn, btc_buf, sizeof(btc_buf));
+  format_mxn_compact(eth_mxn, eth_buf, sizeof(eth_buf));
+  snprintf(usd_buf, sizeof(usd_buf), "%.2f", usd_mxn);
+
+  oled.setCursor(6, 20);
+  oled.print("BTC MXN ");
+  oled.print(btc_buf);
+
+  oled.setCursor(6, 34);
+  oled.print("ETH MXN ");
+  oled.print(eth_buf);
+
+  oled.setCursor(6, 48);
+  oled.print("USD/MXN ");
+  oled.print(usd_buf);
+
+  oled.display();
+}
+
 // =====================================================
 // DRAW EMOTIONS
 // =====================================================
@@ -331,6 +416,10 @@ void draw_emotion(const String &emotion) {
     draw_clock();
     return;
   }
+  else if (emotion == "market") {
+    draw_market();
+    return;
+  }
 
   oled.display();
 }
@@ -377,7 +466,7 @@ String stabilize_emotion(const String &next_emotion) {
     emotion_hold_frames--;
   }
 
-  if (next_emotion == "vomit" || next_emotion == "clock") {
+  if (next_emotion == "vomit" || next_emotion == "clock" || next_emotion == "market") {
     display_emotion = next_emotion;
     emotion_hold_frames = (next_emotion == "vomit") ? MIN_VOMIT_HOLD_FRAMES : 0;
     pending_emotion = "";
@@ -453,10 +542,19 @@ String detect_emotion() {
     idle_counter = 0;
   }
 
-  // Solo entrar en modo reloj si el RTC fue detectado.
-  // Si no hay RTC, solo funcionan giroscopio + caritas.
-  if (hasRTC && idle_counter > 50) {
-    return "clock";
+  // En reposo alterna Binance y RTC cada 10 segundos cuando ambos están disponibles.
+  if (idle_counter > IDLE_INFO_START_FRAMES) {
+    if (prices_valid && hasRTC) {
+      unsigned long info_cycle_ms = IDLE_MARKET_DISPLAY_MS + IDLE_CLOCK_DISPLAY_MS;
+      unsigned long info_phase_ms = millis() % info_cycle_ms;
+      return (info_phase_ms < IDLE_MARKET_DISPLAY_MS) ? "market" : "clock";
+    }
+    if (prices_valid) {
+      return "market";
+    }
+    if (hasRTC) {
+      return "clock";
+    }
   }
 
   if (motion > 85000) {
@@ -548,6 +646,153 @@ void wakeup_sequence() {
 }
 
 // =====================================================
+// WIFI / MARKET REPORTING
+// =====================================================
+
+bool wifi_credentials_configured() {
+  return strcmp(ssid, "TU_WIFI") != 0 && strlen(ssid) > 0;
+}
+
+bool connect_wifi(bool wait_for_connection) {
+  if (!wifi_credentials_configured()) {
+    Serial.println("WiFi no configurado: cambia ssid/password en kubi_c6.ino");
+    return false;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    return true;
+  }
+
+  unsigned long now = millis();
+  if (!wait_for_connection && wifi_started && (now - last_wifi_attempt_ms) < WIFI_RETRY_INTERVAL_MS) {
+    return false;
+  }
+
+  wifi_started = true;
+  last_wifi_attempt_ms = now;
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.begin(ssid, password);
+
+  Serial.print("Conectando WiFi a ");
+  Serial.println(ssid);
+
+  if (!wait_for_connection) {
+    return false;
+  }
+
+  unsigned long started_ms = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - started_ms) < WIFI_CONNECT_TIMEOUT_MS) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("WiFi conectado. IP: ");
+    Serial.println(WiFi.localIP());
+    return true;
+  }
+
+  Serial.println("WiFi no conectado; Kubi seguirá sin red y reintentará después");
+  return false;
+}
+
+bool get_binance_price(const String &symbol, float &price) {
+  if (WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+
+  WiFiClientSecure client;
+  HTTPClient http;
+  client.setInsecure();
+
+  String url = "https://api.binance.com/api/v3/ticker/price?symbol=" + symbol;
+  if (!http.begin(client, url)) {
+    return false;
+  }
+
+  http.setTimeout(HTTP_TIMEOUT_MS);
+  int http_code = http.GET();
+  if (http_code != HTTP_CODE_OK) {
+    Serial.print("HTTP error ");
+    Serial.print(symbol);
+    Serial.print(": ");
+    Serial.println(http_code);
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  StaticJsonDocument<192> doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    Serial.print("JSON error ");
+    Serial.print(symbol);
+    Serial.print(": ");
+    Serial.println(error.c_str());
+    return false;
+  }
+
+  price = doc["price"].as<float>();
+  return price > 0.0;
+}
+
+void print_price_report() {
+  Serial.println("====== MARKET ======");
+  Serial.print("BTC USD: ");
+  Serial.println(btc_usd, 2);
+  Serial.print("ETH USD: ");
+  Serial.println(eth_usd, 2);
+  Serial.print("USD MXN: ");
+  Serial.println(usd_mxn, 4);
+  Serial.print("BTC MXN: ");
+  Serial.println(btc_mxn, 2);
+  Serial.print("ETH MXN: ");
+  Serial.println(eth_mxn, 2);
+}
+
+bool update_market_prices(bool force) {
+  unsigned long now = millis();
+  if (!force && (now - last_price_update_ms) < PRICE_UPDATE_INTERVAL_MS) {
+    return prices_valid;
+  }
+  last_price_update_ms = now;
+
+  if (!connect_wifi(false)) {
+    return false;
+  }
+
+  float next_btc = 0.0;
+  float next_eth = 0.0;
+  float next_mxn = 0.0;
+
+  bool ok = get_binance_price("BTCUSDT", next_btc);
+  delay(120);
+  ok = ok && get_binance_price("ETHUSDT", next_eth);
+  delay(120);
+  ok = ok && get_binance_price("USDTMXN", next_mxn);
+
+  if (!ok) {
+    Serial.println("No se pudieron actualizar precios");
+    return false;
+  }
+
+  btc_usd = next_btc;
+  eth_usd = next_eth;
+  usd_mxn = next_mxn;
+  btc_mxn = btc_usd * usd_mxn;
+  eth_mxn = eth_usd * usd_mxn;
+  prices_valid = true;
+  print_price_report();
+  last_activity_ms = millis();
+  return true;
+}
+
+// =====================================================
 // SETUP
 // =====================================================
 
@@ -571,6 +816,12 @@ void setup() {
   oled.setCursor(0, 20);
   oled.print("Iniciando...");
   oled.display();
+
+  oled.clearDisplay();
+  oled.setCursor(0, 20);
+  oled.print("WiFi...");
+  oled.display();
+  connect_wifi(true);
   
   // Inicializar BMI270
   Serial.println("Inicializando BMI270...");
@@ -620,6 +871,8 @@ void setup() {
   Serial.println("Calibrando acelerómetro...");
   calibrate_accel_baseline();
 
+  update_market_prices(true);
+
   last_activity_ms = millis();
   Serial.println("Sistema listo!");
 }
@@ -651,6 +904,29 @@ void handle_serial_commands() {
     return;
   }
 
+  if (line.equalsIgnoreCase("WIFI")) {
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.print("WiFi conectado. SSID: ");
+      Serial.print(WiFi.SSID());
+      Serial.print(" IP: ");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println("WiFi desconectado");
+      connect_wifi(true);
+    }
+    return;
+  }
+
+  if (line.equalsIgnoreCase("PRICE")) {
+    if (!update_market_prices(true) && prices_valid) {
+      Serial.println("Mostrando ultimo reporte valido:");
+      print_price_report();
+    } else if (!prices_valid) {
+      Serial.println("Sin reporte valido todavia");
+    }
+    return;
+  }
+
   // Comando: SET YYYY-MM-DD HH:MM:SS
   if (line.startsWith("SET ") || line.startsWith("set ")) {
     if (!hasRTC) {
@@ -673,7 +949,7 @@ void handle_serial_commands() {
 
   Serial.print("Comando desconocido: ");
   Serial.println(line);
-  Serial.println("Comandos: TIME | SET YYYY-MM-DD HH:MM:SS");
+  Serial.println("Comandos: TIME | WIFI | PRICE | SET YYYY-MM-DD HH:MM:SS");
 }
 
 // =====================================================
@@ -755,16 +1031,17 @@ void loop() {
   }
 
   // ----- MODO NORMAL -----
+  update_market_prices(false);
   String emotion = detect_emotion();
 
   // Detectar actividad real (no "sleepy" ni "clock") para resetear timer
-  bool is_active = (emotion != "sleepy" && emotion != "clock");
+  bool is_active = (emotion != "sleepy" && emotion != "clock" && emotion != "market");
   if (is_active) {
     last_activity_ms = millis();
   }
 
-  // Entrar en suspend tras 5 min sin actividad
-  if ((millis() - last_activity_ms) > SUSPEND_TIMEOUT_MS) {
+  // En la variante C6 con WiFi se deja desactivado por defecto para que no parezca apagado.
+  if (ENABLE_AUTO_SUSPEND && (millis() - last_activity_ms) > SUSPEND_TIMEOUT_MS) {
     enter_suspend();
     return;
   }
