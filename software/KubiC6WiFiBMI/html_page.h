@@ -26,13 +26,11 @@ button:active{transform:scale(0.98)}
 .vomit{background:linear-gradient(135deg,#43a047,#c0ca33)}
 .surprised{background:linear-gradient(135deg,#ff9100,#ffca28)}
 .clock{background:linear-gradient(135deg,#1565c0,#42a5f5)}
-.weather-btn{background:linear-gradient(135deg,#0277bd,#4fc3f7)}
-.pomo-btn{background:linear-gradient(135deg,#b71c1c,#ef5350)}
+.pomo-start{background:linear-gradient(135deg,#b71c1c,#ef5350)}
 .pomo-pause{background:linear-gradient(135deg,#e65100,#ff9800)}
 .pomo-reset{background:linear-gradient(135deg,#37474f,#78909c)}
 .inputBox{width:100%;padding:16px;border:none;border-radius:16px;margin-bottom:14px;background:#1f2937;color:white;font-size:16px;outline:none}
 .inputBox::placeholder{color:#9ca3af}
-.inputRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .switchContainer{display:flex;align-items:center;justify-content:space-between;background:#1f2937;padding:18px;border-radius:18px}
 .switchContainer span{font-size:18px;font-weight:bold}
 .switch{position:relative;display:inline-block;width:64px;height:34px}
@@ -41,16 +39,25 @@ button:active{transform:scale(0.98)}
 .slider:before{position:absolute;content:"";height:26px;width:26px;left:4px;bottom:4px;background:white;transition:.3s;border-radius:50%}
 input:checked+.slider{background:#00c853}
 input:checked+.slider:before{transform:translateX(30px)}
-.pomo-display{background:#1f2937;border-radius:16px;padding:16px;margin-bottom:14px;text-align:center}
-.pomo-time{font-size:48px;font-weight:900;font-family:monospace;color:#ef5350;letter-spacing:4px}
-.pomo-bar-bg{background:#374151;border-radius:8px;height:10px;margin:10px 0}
-.pomo-bar{background:linear-gradient(90deg,#ef5350,#ff9800);height:10px;border-radius:8px;transition:width 1s linear}
-.pomo-status{font-size:13px;color:#9ca3af;margin-top:6px}
-.pomo-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.range-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.range-row label{font-size:14px;color:#9ca3af;white-space:nowrap}
+/* Pomodoro */
+.pomo-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.pomo-header h2{margin:0}
+.pomo-cycle{font-size:13px;color:#9ca3af;background:#1f2937;padding:4px 12px;border-radius:20px}
+.pomo-phase-badge{text-align:center;font-size:13px;font-weight:bold;padding:6px 0;border-radius:12px;margin-bottom:14px;letter-spacing:1px}
+.phase-focus{background:rgba(239,83,80,0.2);color:#ef5350;border:1px solid rgba(239,83,80,0.3)}
+.phase-break{background:rgba(0,200,83,0.2);color:#00c853;border:1px solid rgba(0,200,83,0.3)}
+.phase-idle{background:rgba(255,255,255,0.05);color:#9ca3af;border:1px solid rgba(255,255,255,0.1)}
+.pomo-display{background:#1f2937;border-radius:16px;padding:20px;margin-bottom:14px;text-align:center}
+.pomo-time{font-size:56px;font-weight:900;font-family:monospace;letter-spacing:4px;transition:color .3s}
+.pomo-bar-bg{background:#374151;border-radius:8px;height:8px;margin:14px 0 0}
+.pomo-bar{height:8px;border-radius:8px;width:0%;transition:width .9s linear}
+.bar-focus{background:linear-gradient(90deg,#ef5350,#ff9800)}
+.bar-break{background:linear-gradient(90deg,#00c853,#00bcd4)}
+.range-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.range-row label{font-size:14px;color:#9ca3af;min-width:80px}
 .range-row input[type=range]{flex:1;accent-color:#ef5350}
-.range-val{font-size:16px;font-weight:bold;min-width:40px;text-align:right}
+.range-val{font-size:15px;font-weight:bold;min-width:36px;text-align:right}
+.pomo-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .footer{text-align:center;margin-top:30px;color:#6b7280;font-size:13px}
 </style>
 </head>
@@ -96,28 +103,37 @@ input:checked+.slider:before{transform:translateX(30px)}
   <button class="clock" style="width:100%" onclick="sendMessage()">Send Message</button>
 </div>
 
-
 <!-- POMODORO -->
 <div class="card">
-  <h2>Pomodoro</h2>
-
-  <div class="range-row">
-    <label>Minutes:</label>
-    <input type="range" min="1" max="60" value="25" step="1" id="pomo-min"
-           oninput="document.getElementById('pomo-min-val').textContent=this.value">
-    <span class="range-val" id="pomo-min-val">25</span>
+  <div class="pomo-header">
+    <h2>Pomodoro</h2>
+    <span class="pomo-cycle" id="pomo-cycle">Cycle #1</span>
   </div>
 
+  <div class="pomo-phase-badge phase-idle" id="pomo-phase">READY</div>
+
   <div class="pomo-display">
-    <div class="pomo-time" id="pomo-time">25:00</div>
+    <div class="pomo-time" id="pomo-time" style="color:#9ca3af">25:00</div>
     <div class="pomo-bar-bg">
-      <div class="pomo-bar" id="pomo-bar" style="width:0%"></div>
+      <div class="pomo-bar bar-focus" id="pomo-bar"></div>
     </div>
-    <div class="pomo-status" id="pomo-status">Ready</div>
+  </div>
+
+  <div class="range-row">
+    <label>Focus:</label>
+    <input type="range" min="1" max="60" value="25" id="r-focus"
+      oninput="document.getElementById('v-focus').textContent=this.value+'m';syncIfIdle()">
+    <span class="range-val" id="v-focus">25m</span>
+  </div>
+  <div class="range-row">
+    <label>Break:</label>
+    <input type="range" min="1" max="15" value="5" id="r-break"
+      oninput="document.getElementById('v-break').textContent=this.value+'m';syncIfIdle()">
+    <span class="range-val" id="v-break">5m</span>
   </div>
 
   <div class="pomo-controls">
-    <button class="pomo-btn"   onclick="pomoAction('start')">Start</button>
+    <button class="pomo-start" onclick="pomoAction('start')">Start</button>
     <button class="pomo-pause" onclick="pomoAction('pause')">Pause</button>
     <button class="pomo-reset" onclick="pomoAction('reset')">Reset</button>
   </div>
@@ -126,90 +142,99 @@ input:checked+.slider:before{transform:translateX(30px)}
 <div class="footer">Powered by UNIT Electronics</div>
 
 <script>
-
-// ---- State ----
-let pomoTotal   = 25 * 60;
-let pomoRemain  = 25 * 60;
-let pomoRunning = false;
-let pomoTick    = null;
-
-// ---- Auto sync time on load ----
+// ---- Auto sync time ----
 fetch('/setTime?epoch=' + Math.floor(Date.now() / 1000));
 
-// ---- Emotion ----
+// ---- Emotions / Clock / Message ----
 function emotion(name) { fetch('/emotion?name=' + name); }
-
-// ---- Clock ----
-function showClock() { fetch('/clock'); }
-
-// ---- Auto Mode ----
-function toggleAuto() {
-  fetch('/auto?state=' + (document.getElementById('autoSwitch').checked ? 'on' : 'off'));
-}
-
-// ---- Message ----
+function showClock()   { fetch('/clock'); }
+function toggleAuto()  { fetch('/auto?state=' + (document.getElementById('autoSwitch').checked ? 'on' : 'off')); }
 function sendMessage() {
   const t = document.getElementById('msg').value;
   if (t) fetch('/message?text=' + encodeURIComponent(t));
 }
 
-// ---- Pomodoro UI ----
-function updatePomoDisplay() {
-  const mm = String(Math.floor(pomoRemain / 60)).padStart(2, '0');
-  const ss = String(pomoRemain % 60).padStart(2, '0');
-  document.getElementById('pomo-time').textContent = mm + ':' + ss;
-  const pct = Math.round((1 - pomoRemain / pomoTotal) * 100);
-  document.getElementById('pomo-bar').style.width = pct + '%';
-  document.getElementById('pomo-status').textContent =
-    pomoRemain === 0 ? 'Time up! Well done!' :
-    pomoRunning ? 'Focus mode active' : (pomoRemain < pomoTotal ? 'Paused' : 'Ready');
+// ---- Pomodoro state (mirror del ESP32) ----
+let pomoState = { phase: 0, running: false, remaining: 25*60, cycle: 1 };
+let pomoTick  = null;
+
+function getFocus() { return parseInt(document.getElementById('r-focus').value); }
+function getBreak() { return parseInt(document.getElementById('r-break').value); }
+
+function syncIfIdle() {
+  // Solo sincroniza duraciones si el pomodoro está en idle
+  if (pomoState.phase === 0)
+    fetch('/pomodoro?action=show&focus=' + getFocus() + '&brk=' + getBreak());
 }
 
-function startTick() {
-  if (pomoTick) clearInterval(pomoTick);
-  pomoTick = setInterval(() => {
-    if (pomoRemain > 0) {
-      pomoRemain--;
-      updatePomoDisplay();
-    } else {
-      clearInterval(pomoTick);
-      pomoRunning = false;
-      updatePomoDisplay();
-    }
-  }, 1000);
-}
+async function pomoAction(action) {
+  const url = '/pomodoro?action=' + action +
+              '&focus=' + getFocus() + '&brk=' + getBreak();
+  const r   = await fetch(url);
+  const data = await r.json();
+  applyState(data);
 
-function pomoAction(action) {
-  const minutes = parseInt(document.getElementById('pomo-min').value);
-  if (action === 'start') {
-    if (!pomoRunning && pomoRemain > 0) {
-      if (pomoRemain === pomoTotal) {
-        fetch('/pomodoro?action=start&minutes=' + minutes);
-      } else {
-        fetch('/pomodoro?action=resume');
-      }
-      pomoRunning = true;
-      startTick();
-    }
-  } else if (action === 'pause') {
-    if (pomoRunning) {
-      clearInterval(pomoTick);
-      pomoRunning = false;
-      fetch('/pomodoro?action=pause');
-      updatePomoDisplay();
-    }
-  } else if (action === 'reset') {
-    clearInterval(pomoTick);
-    pomoRunning = false;
-    pomoTotal   = minutes * 60;
-    pomoRemain  = pomoTotal;
-    fetch('/pomodoro?action=reset&minutes=' + minutes);
-    updatePomoDisplay();
+  if (action === 'start' || action === 'resume') {
+    startLocalTick();
+  } else if (action === 'pause' || action === 'reset') {
+    clearInterval(pomoTick); pomoTick = null;
   }
 }
 
-updatePomoDisplay();
+function applyState(data) {
+  pomoState = data;
+  const mm = String(Math.floor(data.remaining / 60)).padStart(2,'0');
+  const ss = String(data.remaining % 60).padStart(2,'0');
 
+  const timeEl  = document.getElementById('pomo-time');
+  const barEl   = document.getElementById('pomo-bar');
+  const phaseEl = document.getElementById('pomo-phase');
+  const cycleEl = document.getElementById('pomo-cycle');
+
+  timeEl.textContent = mm + ':' + ss;
+  cycleEl.textContent = 'Cycle #' + data.cycle;
+
+  const focusSec = getFocus() * 60;
+  const breakSec = getBreak() * 60;
+  const total    = (data.phase === 2) ? breakSec : focusSec;
+  const pct      = total > 0 ? Math.round((1 - data.remaining / total) * 100) : 0;
+  barEl.style.width = pct + '%';
+
+  if (data.phase === 0) {
+    timeEl.style.color = '#9ca3af';
+    barEl.className    = 'pomo-bar bar-focus';
+    phaseEl.className  = 'pomo-phase-badge phase-idle';
+    phaseEl.textContent = data.remaining === 0 ? 'DONE ✓' : 'READY';
+  } else if (data.phase === 1) {
+    timeEl.style.color = '#ef5350';
+    barEl.className    = 'pomo-bar bar-focus';
+    phaseEl.className  = 'pomo-phase-badge phase-focus';
+    phaseEl.textContent = data.running ? '🔴 FOCUS' : '⏸ FOCUS PAUSED';
+  } else {
+    timeEl.style.color = '#00c853';
+    barEl.className    = 'pomo-bar bar-break';
+    phaseEl.className  = 'pomo-phase-badge phase-break';
+    phaseEl.textContent = data.running ? '🟢 BREAK' : '⏸ BREAK PAUSED';
+  }
+}
+
+function startLocalTick() {
+  if (pomoTick) clearInterval(pomoTick);
+  pomoTick = setInterval(() => {
+    if (!pomoState.running) return;
+    if (pomoState.remaining > 0) {
+      pomoState.remaining--;
+      applyState(pomoState);
+    } else {
+      // Fase terminó — pedir estado real al ESP32
+      clearInterval(pomoTick); pomoTick = null;
+      fetch('/pomodoro?action=show').then(r => r.json()).then(d => {
+        applyState(d);
+        if (d.running) startLocalTick();
+      });
+    }
+  }, 1000);
+}
 </script>
 </body>
 </html>
